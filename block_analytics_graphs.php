@@ -64,4 +64,9 @@ class block_analytics_graphs extends block_base {
         $this->content->footer = '---';
         return $this->content;
     }
+    
+    function applicable_formats() {
+  	    return array('course-view' => true);
+    } 
+    
 }  // Here's the closing bracket for the class definition.
