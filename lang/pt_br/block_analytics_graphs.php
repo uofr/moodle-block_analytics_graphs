@@ -18,6 +18,7 @@
 
 
 $string['analytics_graphs:addinstance'] = 'Add a new AG block';
+$string['nalytics_graphs:bemonitored'] = 'Usuário é monitorado na disciplina';
 $string['analytics_graphs:myaddinstance'] = 'Add a new AG block to the My Moodle page';
 $string['analytics_graphs:viewpages'] = 'Visualiza gráficos';
 
