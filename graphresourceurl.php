@@ -13,34 +13,28 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-
 require('../../config.php');
 require('lib.php');
 require('javascriptfunctions.php');
 $course = required_param('id', PARAM_INT);
 $legacy = required_param('legacy', PARAM_INT);
 global $DB;
-
 /* Access control */
 require_login($course);
 $context = context_course::instance($course);
 require_capability('block/analytics_graphs:viewpages', $context);
-
 $courseparams = get_course($course);
 $startdate = $courseparams->startdate;
 $coursename = get_string('course', 'block_analytics_graphs') . ": " . $courseparams->fullname;
 $students = block_analytics_graphs_get_students($course);
-
 $numberofstudents = count($students);
 if ($numberofstudents == 0) {
     echo(get_string('no_students', 'block_analytics_graphs'));
     exit;
 }
-
 foreach ($students as $tuple) {
     $arrayofstudents[] = array('userid' => $tuple->id , 'nome' => $tuple->firstname.' '.$tuple->lastname, 'email' => $tuple->email);
 }
-
 /* Get accesses to resources and urls */
 $result = block_analytics_graphs_get_resource_url_access($course, $students, $legacy);
 $numberofresources = count($result);
@@ -48,13 +42,11 @@ if ($numberofresources == 0) {
     echo(get_string('no_graph', 'block_analytics_graphs'));
     exit;
 }
-
 $counter = 0;
 $numberofaccesses = 0;
 $numberofresourcesintopic = 0;
 $resourceid = 0;
 $numberofresourcesintopic = array();
-
 foreach ($result as $tuple) {
     if ($resourceid == 0) { /* First time in loop -> get topic and content name */
         $numberofresourcesintopic[$tuple->section] = 1;
@@ -64,8 +56,16 @@ foreach ($result as $tuple) {
                 $statistics[$counter]['material'] = $tuple->resource;
         } else if ($tuple->tipo == 'url') {
                 $statistics[$counter]['material'] = $tuple->url;
-        } else {
+        } else if ($tuple->tipo == 'page') {
                $statistics[$counter]['material'] = $tuple->page;
+        } else if ($tuple->tipo == 'assign') {
+               $statistics[$counter]['material'] = $tuple->assign;
+        } else if ($tuple->tipo == 'forum') {
+               $statistics[$counter]['material'] = $tuple->forum;
+        } else if ($tuple->tipo == 'quiz') {
+               $statistics[$counter]['material'] = $tuple->quiz;
+        } else if ($tuple->tipo == 'folder') {
+               $statistics[$counter]['material'] = $tuple->folder;
         }
         if ($tuple->userid) { /* If a user accessed -> get name */
             $statistics[$counter]['studentswithaccess'][] = array('userid' => $tuple->userid,
@@ -87,7 +87,6 @@ foreach ($result as $tuple) {
             } else {
                 $numberofresourcesintopic[$tuple->section] = 1;
             }
-
             $statistics[$counter]['numberofaccesses'] = $numberofaccesses;
             $statistics[$counter]['numberofnoaccess'] = $numberofstudents - $numberofaccesses;
             if ($numberofaccesses == 0) {
@@ -100,15 +99,21 @@ foreach ($result as $tuple) {
             $statistics[$counter]['topico'] = $tuple->section;
             $statistics[$counter]['tipo'] = $tuple->tipo;
             $resourceid = $tuple->ident;
-
             if ($tuple->tipo == 'resource') {
                 $statistics[$counter]['material'] = $tuple->resource;
             } else if ($tuple->tipo == 'url') {
                 $statistics[$counter]['material'] = $tuple->url;
-            } else {
+            } else if ($tuple->tipo == 'page') {
                 $statistics[$counter]['material'] = $tuple->page;
+            } else if ($tuple->tipo == 'assign') {
+                $statistics[$counter]['material'] = $tuple->assign;
+            } else if ($tuple->tipo == 'forum') {
+                $statistics[$counter]['material'] = $tuple->forum;
+            } else if ($tuple->tipo == 'quiz') {
+                $statistics[$counter]['material'] = $tuple->quiz;
+            } else if ($tuple->tipo == 'folder') {
+                $statistics[$counter]['material'] = $tuple->folder;
             }
-
             if ($tuple->userid) {
                 $statistics[$counter]['studentswithaccess'][] = array('userid' => $tuple->userid,
                         'nome' => $tuple->firstname." ".$tuple->lastname, 'email' => $tuple->email);
@@ -119,7 +124,6 @@ foreach ($result as $tuple) {
         }
     }
 }
-
 /* Adjust last access  */
 $statistics[$counter]['numberofaccesses'] = $numberofaccesses;
 $statistics[$counter]['numberofnoaccess'] = $numberofstudents - $numberofaccesses;
@@ -129,13 +133,10 @@ if ($numberofaccesses == 0) {
     $statistics[$counter]['studentswithnoaccess'] = block_analytics_graphs_subtract_student_arrays($arrayofstudents,
                                                     $statistics[$counter]['studentswithaccess']);
 }
-
 /* Discover groups and members */
 $groupmembers = block_analytics_graphs_get_course_group_members($course);
 $groupmembersjson = json_encode($groupmembers);
-
 $statistics = json_encode($statistics);
-
 /* Log */
 $event = \block_analytics_graphs\event\block_analytics_graphs_event_view_graph::create(array(
     'objectid' => $course,
@@ -143,7 +144,6 @@ $event = \block_analytics_graphs\event\block_analytics_graphs_event_view_graph::
     'other' => "graphresourceurl.php",
 ));
 $event->trigger();
-
 ?>
 <!--DOCTYPE HTML-->
 <html>
@@ -151,18 +151,23 @@ $event->trigger();
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
         <title><?php echo get_string('access_to_contents', 'block_analytics_graphs'); ?></title>
         
-        <link rel="stylesheet" href="externalref/jquery-ui-1.11.4/jquery-ui.css">
-        <script src="externalref/jquery-1.11.1.js"></script> 
-        <script src="externalref/jquery-ui-1.11.4/jquery-ui.js"></script>
+        <link rel="stylesheet" href="externalref/jquery-ui-1.12.1/jquery-ui.css">
+        <script src="externalref/jquery-1.12.2.js"></script> 
+        <script src="externalref/jquery-ui-1.12.1/jquery-ui.js"></script>
         <script src="externalref/highcharts.js"></script>
         <script src="externalref/no-data-to-display.js"></script>
-        <script src="externalref/exporting.js"></script> 
-
+        <script src="externalref/exporting.js"></script>
+        <script src="externalref/export-csv-master/export-csv.js"></script>
+        
+        <style>
+            .ui-dialog {
+                position: fixed;
+            }
+        </style>
 
 
         <script type="text/javascript">
             var groups = <?php echo $groupmembersjson; ?>;
-
             var courseid = <?php echo json_encode($course); ?>;
             var coursename = <?php echo json_encode($coursename); ?>;
             var geral = <?php echo $statistics; ?>;
@@ -171,7 +176,6 @@ $event->trigger();
             var arrayofcontents = [];
             var nraccess_vet = [];
             var nrntaccess_vet = [];
-
             $.each(groups, function(index, group){
                 group.numberofaccesses = [];
                 group.numberofnoaccess = [];
@@ -179,14 +183,11 @@ $event->trigger();
                 group.studentswithnoaccess = [];
                 group.material = [];
             });
-
             $.each(geral, function(index, value) {
-
                 arrayofcontents.push(value.material);
                 //default series value
                 nraccess_vet.push(value.numberofaccesses);
                 nrntaccess_vet.push(value.numberofnoaccess);
-
                 $.each(groups, function(ind, group){
                     if(group.material[index] === undefined)
                         group.material[index] = value.material;
@@ -194,10 +195,8 @@ $event->trigger();
                         $.each(value.studentswithaccess, function(i, student){
                             if(group.studentswithaccess[index] === undefined)
                                 group.studentswithaccess[index] = [];
-
                             if(group.numberofaccesses[index] === undefined)
                                 group.numberofaccesses[index] = 0;
-
                             if(group.members.indexOf(student.userid) != -1){
                                 group.numberofaccesses[index] += 1;
                                 group.studentswithaccess[index].push(value.studentswithaccess[i]);
@@ -207,19 +206,15 @@ $event->trigger();
                     }else{
                         if(group.studentswithaccess[index] === undefined)
                             group.studentswithaccess[index] = [];
-
                         if(group.numberofaccesses[index] === undefined)
                             group.numberofaccesses[index] = 0;
                     }
-
                     if(value.numberofnoaccess > 0){
                         $.each(value.studentswithnoaccess, function(ind, student){
                             if(group.studentswithnoaccess[index] === undefined)
                                 group.studentswithnoaccess[index] = [];
-
                             if(group.numberofnoaccess[index] === undefined)
                                 group.numberofnoaccess[index] = 0;
-
                             if(group.members.indexOf(student.userid) != -1){
                                 group.numberofnoaccess[index] += 1;
                                 group.studentswithnoaccess[index].push(value.studentswithnoaccess[ind]);
@@ -228,21 +223,17 @@ $event->trigger();
                     }else{
                         if(group.studentswithaccess[index] === undefined)
                             group.studentswithnoaccess[index] = [];
-
                         if(group.numberofaccesses[index] === undefined)
                             group.numberofnoaccesses[index] = 0;
                     }
                 });
             });
-
-
             function parseObjToString(obj) {
                 var array = $.map(obj, function(value) {
                     return [value];
                 });
                 return array;
             }
-
             $(function() {
                 $('#container').highcharts({
                     chart: {
@@ -324,8 +315,19 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                                         var group_id = $( "#group_select" ).val();
                                         if(group_id !== undefined && group_id != "-"){//algum grupo foi selecionado
                                             $("#" + nome_conteudo + "-group-"+group_id).dialog("open");
+                                            $("#" + nome_conteudo + "-group-"+group_id).dialog("option", "position", {
+                                                my:"center top",
+                                                at:"center top+" + 10,
+                                                of:window
+                                            });
                                         }else{
-                                            $("#" + nome_conteudo).dialog("open");    
+                                            $("#" + nome_conteudo).dialog("open");  
+                                            $("#" + nome_conteudo).dialog("option", "position", {
+                                                my:"center top",
+                                                at:"center top+" + 10,
+                                                of:window
+                                            });  
+                                            $("#" + nome_conteudo).dialog("open");  
                                         }
                                         
                                 }
@@ -340,7 +342,6 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                         }
                     }
                 },
-
                 legend: {
                     layout: 'vertical',
                     align: 'right',
@@ -352,11 +353,9 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                     backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColor || '#FFFFFF'),
                     shadow: true
                 },
-
                 credits: {
                     enabled: false
                 },
-
                 series: [{
                     name: '<?php echo get_string('access', 'block_analytics_graphs'); ?>',
                     data: nraccess_vet,
@@ -368,7 +367,6 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                 }]
             });
         });
-
         </script>
     </head>
     <body>
@@ -377,20 +375,19 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
             <select id="group_select">
                 <option value="-"><?php  echo json_encode(get_string('all_groups', 'block_analytics_graphs'));?></option>
 <?php
-    foreach ($groupmembers as $key => $value) {
+foreach ($groupmembers as $key => $value) {
 ?>
-                    <option value="<?php echo $key; ?>"><?php echo $value["name"]; ?></option>
-<?php 
-    }
+    <option value="<?php echo $key; ?>"><?php echo $value["name"]; ?></option>
+<?php
+}
 ?>
             </select>
         </div>
-<?php 
+<?php
 }
 ?>
-        <div id="container" style="min-width: 800px; height:<?php echo ($counter+1)*50+180;?>; margin: 0 auto"></div>
+        <div id="container" style="min-width: 800px; height:<?php echo ($counter + 1) * 50 + 180;?>; margin: 0 auto"></div>
         <script>
-
             $.each(geral, function(index, value) {
                 var nome = value.material;
                 div = "";
@@ -399,7 +396,6 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                      var titulo = coursename + "</h3>" +
                             <?php  echo json_encode(get_string('access', 'block_analytics_graphs'));?> + " - "+
                             nome;
-
                     div += "<div class='div_nomes' id='" + index + "-" + 
                         "<?php echo substr(get_string('access', 'block_analytics_graphs'), 0, 1);?>" +
                         "'>" + createEmailForm(titulo, value.studentswithaccess, courseid, 'graphResourceUrl.php') + "</div>";
@@ -409,17 +405,14 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                     var titulo = coursename + "</h3>" +
                             <?php  echo json_encode(get_string('no_access', 'block_analytics_graphs'));?> + " - "+
                             nome;
-
                     div += "<div class='div_nomes' id='" + index + "-" +
                         "<?php echo substr(get_string('no_access', 'block_analytics_graphs'), 0, 1);?>" +
                         "'>" + createEmailForm(titulo, value.studentswithnoaccess, courseid, 'graphResourceUrl.php') + "</div>";
                 }
                 document.write(div);
             });
-
             $.each(groups, function(index, value) {
                 div = "";
-
                 if (typeof value.studentswithaccess != 'undefined')
                 {
                     $.each(value.studentswithaccess, function(ind, student){
@@ -448,10 +441,7 @@ foreach ($numberofresourcesintopic as $topico => $numberoftopics) {
                 }
                 document.write(div);
             });
-
-
         sendEmail();
-
         $( "#group_select" ).change(function() {
             console.log($(this).val());
             convert_series_to_group($(this).val(), groups, geral, '#container');

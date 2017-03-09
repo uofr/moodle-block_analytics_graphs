@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+defined('MOODLE_INTERNAL') || die();
 ?>
 <!--DOCTYPE HTML-->
 <html>
@@ -21,12 +22,13 @@
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
         <title><?php echo get_string('submissions', 'block_analytics_graphs'); ?></title>
         
-        <link rel="stylesheet" href="externalref/jquery-ui-1.11.4/jquery-ui.css">
-        <script src="externalref/jquery-1.11.1.js"></script> 
-        <script src="externalref/jquery-ui-1.11.4/jquery-ui.js"></script>
+        <link rel="stylesheet" href="externalref/jquery-ui-1.12.1/jquery-ui.css">
+        <script src="externalref/jquery-3.1.1.js"></script>
+        <script src="externalref/jquery-ui-1.12.1/jquery-ui.js"></script>
         <script src="externalref/highcharts.js"></script>
         <script src="externalref/no-data-to-display.js"></script>
-        <script src="externalref/exporting.js"></script> 
+        <script src="externalref/exporting.js"></script>
+        <script src="externalref/export-csv-master/export-csv.js"></script>
 
         
         <script type="text/javascript">
@@ -161,11 +163,11 @@
             <select id="group_select">
                 <option value="-"><?php  echo json_encode(get_string('all_groups', 'block_analytics_graphs'));?></option>
 <?php
-    foreach ($groupmembers as $key => $value) {
+foreach ($groupmembers as $key => $value) {
 ?>
-                    <option value="<?php echo $key; ?>"><?php echo $value["name"]; ?></option>
+    <option value="<?php echo $key; ?>"><?php echo $value["name"]; ?></option>
 <?php
-    }
+}
 ?>
             </select>
         </div>

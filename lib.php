@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+defined('MOODLE_INTERNAL') || die();
 
 function block_analytics_graphs_subtract_student_arrays($estudantes, $acessaram) {
     $encontrou = array();
@@ -89,12 +90,16 @@ function block_analytics_graphs_get_resource_url_access($course, $estudantes, $l
     $resource = $DB->get_record('modules', array('name' => 'resource'), 'id');
     $url = $DB->get_record('modules', array('name' => 'url'), 'id');
     $page = $DB->get_record('modules', array('name' => 'page'), 'id');
+    $assign = $DB->get_record('modules', array('name' => 'assign'), 'id');
+    $forum = $DB->get_record('modules', array('name' => 'forum'), 'id');
+    $quiz = $DB->get_record('modules', array('name' => 'quiz'), 'id');
+    $folder = $DB->get_record('modules', array('name' => 'folder'), 'id');
     $startdate = $COURSE->startdate;
-    
+
     /* Temp table to order */
     $params = array($course);
     $sql = "SELECT id, section, sequence
-            FROM {course_sections} as cs
+            FROM {course_sections}
             WHERE course  = ? AND sequence <> ''
             ORDER BY section";
     $result = $DB->get_records_sql($sql, $params);
@@ -108,29 +113,29 @@ function block_analytics_graphs_get_resource_url_access($course, $estudantes, $l
     $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
     $dbman->create_temp_table($table);
     $sequence = 0;
-    foreach($result as $tuple) {
+    foreach ($result as $tuple) {
         $modules = explode(',', $tuple->sequence);
-        foreach($modules as $module) {
-                               $record = new stdClass();
-                    $record->section = $tuple->section;
-                    $record->module = $module;
-                    $record->sequence = $sequence++;
-                    $DB->insert_record('tmp_analytics_graphs', $record, false);
-            }
+        foreach ($modules as $module) {
+            $record = new stdClass();
+            $record->section = $tuple->section;
+            $record->module = $module;
+            $record->sequence = $sequence++;
+            $DB->insert_record('tmp_analytics_graphs', $record, false);
+        }
     }
-           
-                              
-    $params = array_merge(array($startdate), $inparams, array($course, $resource->id, $url->id, $page->id));
+    $params = array_merge(array($startdate), $inparams, array($course, $resource->id, $url->id, $page->id, $assign->id,
+                                                              $forum->id, $quiz->id, $folder->id));
     if (!$legacy) {
         $sql = "SELECT temp.id+(COALESCE(temp.userid,1)*1000000)as id, temp.id as ident, tag.section, m.name as tipo,
-                    r.name as resource, u.name as url, p.name as page, temp.userid, usr.firstname,
-                    usr.lastname, usr.email, temp.acessos, tag.sequence
+                    r.name as resource, u.name as url, p.name as page,  a.name as assign, f.name as forum, q.name as quiz,
+                    fo.name as folder,temp.userid, usr.firstname, usr.lastname, usr.email, temp.acessos, tag.sequence
                     FROM (
                         SELECT cm.id, log.userid, count(*) as acessos
                         FROM {course_modules} as cm
                         LEFT JOIN {logstore_standard_log} as log ON log.timecreated >= ?
                             AND log.userid $insql AND action = 'viewed' AND cm.id=log.contextinstanceid
-                        WHERE cm.course = ? AND (cm.module=? OR cm.module=? OR cm.module=?)
+                        WHERE cm.course = ? AND (cm.module=? OR cm.module=? OR cm.module=? OR cm.module=? OR cm.module=? OR
+                            cm.module=? OR cm.module=?)
                         GROUP BY cm.id, log.userid
                         ) as temp
                     LEFT JOIN {course_modules} as cm ON temp.id = cm.id
@@ -138,6 +143,10 @@ function block_analytics_graphs_get_resource_url_access($course, $estudantes, $l
                     LEFT JOIN {resource} as r ON cm.instance = r.id
                     LEFT JOIN {url} as u ON cm.instance = u.id
                     LEFT JOIN {page} as p ON cm.instance = p.id
+                    LEFT JOIN {assign} as a ON cm.instance = a.id
+                    LEFT JOIN {forum} as f ON cm.instance = f.id
+                    LEFT JOIN {quiz} as q ON cm.instance = q.id
+                    LEFT JOIN {folder} as fo ON cm.instance = fo.id
                     LEFT JOIN {user} as usr ON usr.id = temp.userid
                     LEFT JOIN {tmp_analytics_graphs} as tag ON tag.module = cm.id
                     ORDER BY tag.sequence";
@@ -455,22 +464,25 @@ function block_analytics_graphs_extend_navigation_course($navigation, $course, $
     global $CFG;
     $reports = $navigation->find('coursereports', navigation_node::TYPE_CONTAINER);
     if (has_capability('block/analytics_graphs:viewpages', $context) && $reports) {
-        $report_analytics_graphs = $reports->add(get_string('pluginname', 'block_analytics_graphs'));
-        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/grades_chart.php', array('id'=>$course->id));
-        $report_analytics_graphs->add(get_string('grades_chart', 'block_analytics_graphs'), $url,
+        $reportanalyticsgraphs = $reports->add(get_string('pluginname', 'block_analytics_graphs'));
+        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/grades_chart.php',
+            array('id' => $course->id));
+        $reportanalyticsgraphs->add(get_string('grades_chart', 'block_analytics_graphs'), $url,
             navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
-        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/graphresourceurl.php', 
-            array('id'=>$course->id, 'legacy'=>'0'));
-        $report_analytics_graphs->add(get_string('access_to_contents', 'block_analytics_graphs'), $url,
+        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/graphresourceurl.php',
+            array('id' => $course->id, 'legacy' => '0'));
+        $reportanalyticsgraphs->add(get_string('access_to_contents', 'block_analytics_graphs'), $url,
             navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
-        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/assign.php', array('id'=>$course->id));
-        $report_analytics_graphs->add(get_string('submissions_assign', 'block_analytics_graphs'), $url,
+        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/assign.php',
+            array('id' => $course->id));
+        $reportanalyticsgraphs->add(get_string('submissions_assign', 'block_analytics_graphs'), $url,
             navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
-        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/quiz.php', array('id'=>$course->id));
-        $report_analytics_graphs->add(get_string('submissions_quiz', 'block_analytics_graphs'), $url, 
+        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/quiz.php', array('id' => $course->id));
+        $reportanalyticsgraphs->add(get_string('submissions_quiz', 'block_analytics_graphs'), $url,
             navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
-        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/hits.php', array('id'=>$course->id, 'legacy'=>'0'));
-        $report_analytics_graphs->add(get_string('hits_distribution', 'block_analytics_graphs'), $url,         
+        $url = new moodle_url($CFG->wwwroot.'/blocks/analytics_graphs/hits.php', array('id' => $course->id,
+            'legacy' => '0'));
+        $reportanalyticsgraphs->add(get_string('hits_distribution', 'block_analytics_graphs'), $url,
             navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
     }
 }
