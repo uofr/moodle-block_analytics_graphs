@@ -20,6 +20,7 @@ require('lib.php');
 require('javascriptfunctions.php');
 $course = required_param('id', PARAM_INT);
 $legacy = required_param('legacy', PARAM_INT);
+$startdate = optional_param('from', '***', PARAM_TEXT);
 global $DB;
 
 /* Access control */
@@ -34,7 +35,15 @@ require_capability('block/analytics_graphs:viewpages', $context);
 // echo $OUTPUT->header();
 
 $courseparams = get_course($course);
-$startdate = $courseparams->startdate;
+if ($startdate === '***') {
+	$startdate = $courseparams->startdate;
+} else {
+	$datetoarray = explode('-', $startdate);
+	$starttime = new DateTime("now", core_date::get_server_timezone_object());
+	$starttime->setDate((int)$datetoarray[0], (int)$datetoarray[1], (int)$datetoarray[2]);
+	$starttime->setTime(0, 0, 0);
+	$startdate = $starttime->getTimestamp();
+}
 $coursename = get_string('course', 'block_analytics_graphs') . ": " . $courseparams->fullname;
 $students = block_analytics_graphs_get_students($course);
 
@@ -79,8 +88,10 @@ foreach ($accessresults as $tuple) {
 }
 
 
-/* Discover groups and members */
+/* Discover groups/groupings and members */
 $groupmembers = block_analytics_graphs_get_course_group_members($course);
+$groupingmembers = block_analytics_graphs_get_course_grouping_members($course);
+$groupmembers = array_merge($groupmembers,$groupingmembers);
 $groupmembersjson = json_encode($groupmembers);
 
 

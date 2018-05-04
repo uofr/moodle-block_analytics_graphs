@@ -51,6 +51,24 @@ function block_analytics_graphs_get_course_group_members($course) {
     return($groupmembers);
 }
 
+function block_analytics_graphs_get_course_grouping_members($course) {
+    $groupingmembers = array();
+    $groupings = groups_get_all_groupings($course);
+    foreach ($groupings as $grouping) {
+        $members = groups_get_grouping_members($grouping->id);
+        if (!empty($members)) {
+            $groupingmembers[$grouping->id]['name'] = $grouping->name;
+            $numberofmembers = 0;
+            foreach ($members as $member) {
+                $groupingmembers[$grouping->id]['members'][] = $member->id;
+                $numberofmembers++;
+            }
+            $groupingmembers[$grouping->id]['numberofmembers']  = $numberofmembers;
+        }
+    }
+    return($groupingmembers);
+}
+
 
 function block_analytics_graphs_get_students($course) {
     $students = array();
@@ -97,14 +115,14 @@ function block_analytics_graphs_get_course_used_modules ($courseid) {
             FROM {course_modules} cm
             LEFT JOIN {modules} md ON cm.module = md.id
             WHERE cm.course = ?
-            GROUP BY cm.module";
+            GROUP BY cm.module, md.name";
     $params = array($courseid);
     $result = $DB->get_records_sql($sql, $params);
 
     return $result;
 }
 
-function block_analytics_graphs_get_resource_url_access($course, $estudantes, $requestedtypes) {
+function block_analytics_graphs_get_resource_url_access($course, $estudantes, $requestedtypes, $startdate, $hidden) {
     global $COURSE;
     global $DB;
     foreach ($estudantes as $tupla) {
@@ -119,7 +137,7 @@ function block_analytics_graphs_get_resource_url_access($course, $estudantes, $r
         array_push($requestedmodules, $temp->id);
     }
 
-    $startdate = $COURSE->startdate;
+	// $startdate = $COURSE->startdate;
 
     /* Temp table to order */
     $params = array($course);
@@ -157,8 +175,14 @@ function block_analytics_graphs_get_resource_url_access($course, $estudantes, $r
                         SELECT cm.id, log.userid, count(*) as acessos
                         FROM {course_modules} cm
                         LEFT JOIN {logstore_standard_log} log ON log.timecreated >= ?
-                            AND log.userid $insql AND action = 'viewed' AND cm.id=log.contextinstanceid
-                        WHERE cm.course = ? AND (";
+                            AND log.userid $insql AND (action = 'viewed' OR action = 'submission') AND cm.id=log.contextinstanceid
+                        WHERE cm.course = ?";
+	if ($hidden) {
+		$sqlb .= " AND (";
+	} else {
+		$sqlb .= " AND cm.visible=1 AND (";
+	}
+	
     $sqlc = "cm.module=?";
 
     if (count($requestedmodules) >= 2) {
@@ -285,8 +309,8 @@ function block_analytics_graphs_get_resource_url_access($course, $estudantes, $r
         ";
                 break;
             case "turnitintooltwo" :
-                $sqlA.= "tii.name as turnitintooltwo, ";
-                $sqlD.= "LEFT JOIN {turnitintooltwo} tii ON cm.instance = tii.id
+                $sqla.= "tii.name as turnitintooltwo, ";
+                $sqld.= "LEFT JOIN {turnitintooltwo} tii ON cm.instance = tii.id
         ";
                     break;
             case "hvp" :
@@ -849,8 +873,8 @@ function block_analytics_graphs_get_user_resource_url_page_access($course, $stud
             ";
                 break;
             case "turnitintooltwo" :
-                $sqlA.= "tii.name as turnitintooltwo, ";
-                $sqlD.= "LEFT JOIN {turnitintooltwo} tii ON cm.instance = tii.id
+                $sqla.= "tii.name as turnitintooltwo, ";
+                $sqld.= "LEFT JOIN {turnitintooltwo} tii ON cm.instance = tii.id
             ";
                 break;
             case "quiz" :
