@@ -104,3 +104,13 @@ $string['remove_task'] = "Remover avaliação do gráfico";
 $string['no_student_task'] = "Esta avaliação não possui estudantes no grupo selecionado";
 $string['add_all'] = "Adicionar todas";
 $string['remove_all'] = "Remover todas";
+
+// graphresourcestartup
+$string['activities'] = "Atividades";
+$string['displayhidden'] = "Mostrar itens escondidos";
+$string['options'] = "Opções";
+$string['startfrom'] = "Iniciar em";
+
+// Privacy
+$string['privacy:metadata'] = 'O bloco Analytics Graphs mostra apenas dados já existentes no moodle.';
+
